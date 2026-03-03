@@ -18,20 +18,21 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build Docker image
-        run: docker build -t hello-microservice .
+        run: docker build -t ${{ secrets.ECR_REPOSITORY }} .
 
       - name: Tag Docker image
         run: |
-          docker tag hello-microservice:latest \
-          190493316120.dkr.ecr.ap-south-1.amazonaws.com/hello-microservice:latest
+          docker tag ${{ secrets.ECR_REPOSITORY }}:latest \
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
 
       - name: Push to ECR
         run: |
           docker push \
-          190493316120.dkr.ecr.ap-south-1.amazonaws.com/hello-microservice:latest
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
