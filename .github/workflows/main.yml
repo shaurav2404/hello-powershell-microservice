@@ -26,25 +26,46 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      # Build image WITHOUT cache
+      # Build Docker image
       - name: Build Docker image
         run: |
           docker build --no-cache \
           -t ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG .
 
-      # Tag image with full ECR URI
+      # Tag image
       - name: Tag Docker image
         run: |
           docker tag ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG \
           ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
 
-      # Push image to ECR
+      # Push image
       - name: Push to ECR
         run: |
           docker push \
           ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
 
-      # Update ECS service (force new deployment)
+      # Download current task definition
+      - name: Get current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition hello-task \
+            --query taskDefinition > task-def.json
+
+      # Replace image with new SHA
+      - name: Update task definition image
+        run: |
+          jq --arg IMAGE "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG" \
+          '.containerDefinitions[0].image = $IMAGE 
+          | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' \
+          task-def.json > new-task-def.json
+
+      # Register new revision
+      - name: Register new task definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json
+
+      # Deploy new revision
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
