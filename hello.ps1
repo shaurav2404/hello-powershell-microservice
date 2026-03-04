@@ -1,24 +1,28 @@
-Write-Host "Starting ECS container..."
+$listener = New-Object System.Net.HttpListener
+$listener.Prefixes.Add("http://*:80/")
+$listener.Start()
+
+Write-Host "Server started on port 80..."
 
 while ($true) {
+    $context = $listener.GetContext()
+    $response = $context.Response
 
-    try {
-        # Get the public IP seen by the container
-        $ip = Invoke-RestMethod -Uri "https://api.ipify.org"
+    $message = @"
+<html>
+<head>
+<title>ECS Deployment</title>
+</head>
+<body>
+<h1>Hello from ECS Fargate 🚀</h1>
+<p>Container running successfully</p>
+<p>Time: $(Get-Date)</p>
+</body>
+</html>
+"@
 
-        # Print the IP to logs
-        Write-Host "Container Public IP: $ip"
-
-        # Print timestamp
-        Write-Host "Time: $(Get-Date)"
-
-        Write-Host "-----------------------------------"
-    }
-    catch {
-        Write-Host "Failed to fetch public IP"
-        Write-Host $_
-    }
-
-    # Wait 10 seconds before checking again
-    Start-Sleep -Seconds 10
+    $buffer = [System.Text.Encoding]::UTF8.GetBytes($message)
+    $response.ContentLength64 = $buffer.Length
+    $response.OutputStream.Write($buffer,0,$buffer.Length)
+    $response.OutputStream.Close()
 }
