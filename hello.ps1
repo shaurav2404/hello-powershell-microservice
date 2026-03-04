@@ -7,7 +7,7 @@ Write-Host "Service started..."
 while ($listener.IsListening) {
     $context = $listener.GetContext()
     $response = $context.Response
-    $buffer = [System.Text.Encoding]::UTF8.GetBytes("Hello Microservice Sauravs S.")
+    $buffer = [System.Text.Encoding]::UTF8.GetBytes("Microservice Sauravs S.")
     $response.OutputStream.Write($buffer, 0, $buffer.Length)
     $response.Close()
 }
