@@ -1,5 +1,5 @@
 $listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add("http://0.0.0.0:80/")
+$listener.Prefixes.Add("http://*:8080/")
 $listener.Start()
 
 Write-Host "Server started on port 80..."
