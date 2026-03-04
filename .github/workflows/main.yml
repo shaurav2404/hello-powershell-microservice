@@ -5,12 +5,12 @@ on:
     branches:
       - master
 
+env:
+  IMAGE_TAG: ${{ github.sha }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
-    env:
-      IMAGE_TAG: ${{ github.sha }}
 
     steps:
       - name: Checkout code
@@ -26,55 +26,47 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      # Build Docker image
       - name: Build Docker image
         run: |
-          docker build --no-cache \
-          -t ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG .
+          docker build --pull --no-cache \
+          -t ${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
 
-      # Tag image
       - name: Tag Docker image
         run: |
-          docker tag ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG \
-          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+          docker tag ${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} \
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
-      # Push image
-      - name: Push to ECR
+      - name: Push image to ECR
         run: |
           docker push \
-          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
-      # Download current task definition
-      - name: Get current task definition
+      - name: Download current task definition
         run: |
           aws ecs describe-task-definition \
-            --task-definition hello-task \
-            --query taskDefinition > task-def.json
+          --task-definition hello-task \
+          --query taskDefinition > task-def.json
 
-      # Replace image with new SHA
       - name: Update task definition image
         run: |
-          jq --arg IMAGE "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG" \
-          '.containerDefinitions[0].image = $IMAGE 
-          | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' \
+          jq --arg IMAGE "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}" \
+          '.containerDefinitions[0].image=$IMAGE | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' \
           task-def.json > new-task-def.json
 
-      # Register new revision
       - name: Register new task definition
         run: |
           aws ecs register-task-definition \
-            --cli-input-json file://new-task-def.json
+          --cli-input-json file://new-task-def.json
 
-      # Deploy new revision
       - name: Deploy to ECS
-      run: |
-        TASK_REVISION=$(aws ecs describe-task-definition \
-        --task-definition hello-task \
-        --query 'taskDefinition.revision' \
-        --output text)
+        run: |
+          TASK_REVISION=$(aws ecs describe-task-definition \
+            --task-definition hello-task \
+            --query 'taskDefinition.revision' \
+            --output text)
 
-        aws ecs update-service \
-        --cluster ${{ secrets.ECS_CLUSTER }} \
-        --service ${{ secrets.ECS_SERVICE }} \
-        --task-definition hello-task:$TASK_REVISION \
-        --force-new-deployment
+          aws ecs update-service \
+            --cluster ${{ secrets.ECS_CLUSTER }} \
+            --service ${{ secrets.ECS_SERVICE }} \
+            --task-definition hello-task:$TASK_REVISION \
+            --force-new-deployment
