@@ -1,4 +1,13 @@
-while ($true) {
-    Write-Output "Hello Microservice Saurav Shah"
-    Start-Sleep -Seconds 10
+$listener = [System.Net.HttpListener]::new()
+$listener.Prefixes.Add("http://*:80/")
+$listener.Start()
+
+Write-Host "Service started..."
+
+while ($listener.IsListening) {
+    $context = $listener.GetContext()
+    $response = $context.Response
+    $buffer = [System.Text.Encoding]::UTF8.GetBytes("Hello Microservice Sauravs S.")
+    $response.OutputStream.Write($buffer, 0, $buffer.Length)
+    $response.Close()
 }
