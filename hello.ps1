@@ -4,11 +4,14 @@ $listener.Start()
 
 Write-Host "Server started on port 80..."
 
-while ($true) {
-    $context = $listener.GetContext()
-    $response = $context.Response
+while ($listener.IsListening) {
 
-    $message = @"
+    try {
+
+        $context = $listener.GetContext()
+        $response = $context.Response
+
+        $message = @"
 <html>
 <head>
 <title>ECS Deployment</title>
@@ -16,13 +19,19 @@ while ($true) {
 <body>
 <h1>Hello from ECS Fargate 🚀</h1>
 <p>Container running successfully</p>
-<p>Time: $(Get-Date)</p>
 </body>
 </html>
 "@
 
-    $buffer = [System.Text.Encoding]::UTF8.GetBytes($message)
-    $response.ContentLength64 = $buffer.Length
-    $response.OutputStream.Write($buffer,0,$buffer.Length)
-    $response.OutputStream.Close()
+        $buffer = [System.Text.Encoding]::UTF8.GetBytes($message)
+
+        $response.ContentLength64 = $buffer.Length
+        $response.OutputStream.Write($buffer,0,$buffer.Length)
+        $response.OutputStream.Close()
+
+    }
+    catch {
+        Write-Host "Request failed but server still running..."
+    }
+
 }
